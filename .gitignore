@@ -1,0 +1,38 @@
+
+# Runtime data and test subscriptions
+backend/data/**/*.json
+
+# Local backups
+*.bak
+*.bak-*
+*.backup
+
+# Local credentials
+android/keystore/
+android/keystore.properties
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+
+# Android generated files
+android/.gradle/
+android/**/build/
+android/local.properties
+android/*.dex
+android/bk-classes.dex
+
+# Node generated files
+node_modules/
+**/node_modules/
+*.log
+
+# DEX temporaires partout dans le projet
+*.dex
+
+# Rapports générés
+android/build/reports/

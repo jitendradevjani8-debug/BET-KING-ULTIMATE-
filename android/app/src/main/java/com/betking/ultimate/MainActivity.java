@@ -27,6 +27,7 @@ public class MainActivity extends Activity {
 
     private TextView statusText;
     private TextView dashboardText;
+    private TextView subscriptionText;
     private TextView resultText;
 
     private String sessionToken = null;
@@ -104,6 +105,23 @@ public class MainActivity extends Activity {
 
         dashboardText.setTextSize(16);
 
+        subscriptionText =
+                new TextView(this);
+
+        subscriptionText.setText(
+                "💎 MON ABONNEMENT\n\n" +
+                "Chargement..."
+        );
+
+        subscriptionText.setTextSize(16);
+
+        subscriptionText.setPadding(
+                0,
+                25,
+                0,
+                25
+        );
+
         Button refreshButton =
                 new Button(this);
 
@@ -154,6 +172,7 @@ public class MainActivity extends Activity {
         root.addView(title);
         root.addView(statusText);
         root.addView(dashboardText);
+        root.addView(subscriptionText);
         root.addView(refreshButton);
         root.addView(hcButton);
         root.addView(ultraButton);
@@ -237,6 +256,7 @@ public class MainActivity extends Activity {
                     );
 
                     loadDashboard();
+                    loadSubscription();
                 });
 
             } catch (Exception e) {
@@ -254,6 +274,161 @@ public class MainActivity extends Activity {
                             e.getMessage()
                     );
                 });
+            }
+
+        }).start();
+    }
+
+    /*
+     * ==========================================
+     * ABONNEMENT MEMBRE
+     * ==========================================
+     */
+
+    private void loadSubscription() {
+
+        if (sessionToken == null) {
+            subscriptionText.setText(
+                    "💎 MON ABONNEMENT\n\n" +
+                    "Session absente."
+            );
+            return;
+        }
+
+        subscriptionText.setText(
+                "💎 MON ABONNEMENT\n\n" +
+                "🔄 Chargement..."
+        );
+
+        new Thread(() -> {
+
+            try {
+
+                JSONObject response =
+                        getAuthenticated(
+                                API_BASE +
+                                "/subscription/me"
+                        );
+
+                handler.post(() -> {
+
+                    try {
+
+                        JSONObject subscription =
+                                response.optJSONObject(
+                                        "subscription"
+                                );
+
+                        JSONArray permissions =
+                                response.optJSONArray(
+                                        "permissions"
+                                );
+
+                        if (subscription == null) {
+
+                            subscriptionText.setText(
+                                    "💎 MON ABONNEMENT\n\n" +
+                                    "Aucun abonnement trouvé."
+                            );
+
+                            return;
+                        }
+
+                        String plan =
+                                subscription.optString(
+                                        "planId",
+                                        "UNKNOWN"
+                                );
+
+                        String status =
+                                subscription.optString(
+                                        "effectiveStatus",
+                                        subscription.optString(
+                                                "status",
+                                                "UNKNOWN"
+                                        )
+                                );
+
+                        String expiresAt =
+                                subscription.optString(
+                                        "expiresAt",
+                                        "Aucune expiration"
+                                );
+
+                        StringBuilder permissionsText =
+                                new StringBuilder();
+
+                        if (permissions != null) {
+
+                            for (
+                                    int i = 0;
+                                    i < permissions.length();
+                                    i++
+                            ) {
+
+                                if (i > 0) {
+                                    permissionsText.append(
+                                            ", "
+                                    );
+                                }
+
+                                permissionsText.append(
+                                        permissions.optString(
+                                                i
+                                        )
+                                );
+                            }
+                        }
+
+                        subscriptionText.setText(
+                                "💎 MON ABONNEMENT\n\n" +
+
+                                "Plan : " +
+                                plan +
+                                "\n" +
+
+                                "Statut : " +
+                                status +
+                                "\n" +
+
+                                "Expiration : " +
+                                expiresAt +
+                                "\n\n" +
+
+                                "🔐 Permissions :\n" +
+                                permissionsText
+                        );
+
+                    } catch (Exception e) {
+
+                        subscriptionText.setText(
+                                "💎 MON ABONNEMENT\n\n" +
+                                "❌ Lecture impossible\n" +
+                                e.getMessage()
+                        );
+                    }
+                });
+
+            } catch (Exception e) {
+
+                if (isUnauthorized(e)) {
+
+                    sessionToken = null;
+
+                    handler.post(
+                            this::autoAuthenticate
+                    );
+
+                    return;
+                }
+
+                handler.post(() ->
+                        subscriptionText.setText(
+                                "💎 MON ABONNEMENT\n\n" +
+                                "🔴 API abonnement indisponible\n" +
+                                e.getMessage()
+                        )
+                );
             }
 
         }).start();
@@ -805,8 +980,6 @@ public class MainActivity extends Activity {
     ) throws Exception {
 
         URL url =
-                new URL(urlString);
-
                 new URL(urlString);
 
         HttpURLConnection connection =

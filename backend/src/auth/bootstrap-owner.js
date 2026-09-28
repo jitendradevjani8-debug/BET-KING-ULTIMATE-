@@ -39,7 +39,7 @@ if (existing) {
   console.log("==============================================");
   console.log("username :", owner.username);
   console.log("role     :", owner.role);
-  console.log("password :", password);
+  console.log("password : [MASQUÉ]");
   console.log("==============================================");
   console.log("CONSERVE CE MOT DE PASSE.");
   console.log("Il sera nécessaire pour la connexion OWNER.");

@@ -32,8 +32,22 @@ const {
   requireRoles
 } = require("../auth/permissions");
 
-const HOST = "127.0.0.1";
-const PORT = 3001;
+const {
+  createTestPayment,
+  updateTestPaymentStatus,
+  getTestPayment
+} = require("../payments/payment-service");
+
+const {
+  processTestPaymentWebhook
+} = require("../payments/payment-webhook-service");
+
+const {
+  applySuccessfulPaymentToSubscription
+} = require("../payments/payment-subscription-service");
+
+const HOST = process.env.HOST || "127.0.0.1";
+const PORT = Number(process.env.PORT) || 3001;
 
 function sendJson(res, statusCode, data) {
   const body = JSON.stringify(
@@ -507,6 +521,502 @@ const server =
               ok: true,
               subscription:
                 result
+            }
+          );
+
+          return;
+        }
+
+        /*
+         * ==========================================
+         * PAYMENT TEST — CREATE
+         * ==========================================
+         */
+        if (
+          req.method === "POST" &&
+          req.url === "/api/payment/test/create"
+        ) {
+          const user =
+            getAuthenticatedUser(req);
+
+          if (!user) {
+            sendError(
+              res,
+              401,
+              "Authentification requise."
+            );
+
+            return;
+          }
+
+          const body =
+            await readBody(req);
+
+          if (
+            typeof body.planId !== "string" ||
+            !body.planId
+          ) {
+            sendError(
+              res,
+              400,
+              "planId requis."
+            );
+
+            return;
+          }
+
+          if (
+            body.amount !== undefined &&
+            (
+              typeof body.amount !== "number" ||
+              !Number.isFinite(body.amount) ||
+              body.amount < 0
+            )
+          ) {
+            sendError(
+              res,
+              400,
+              "amount invalide."
+            );
+
+            return;
+          }
+
+          const currency =
+            body.currency === undefined
+              ? "GNF"
+              : body.currency;
+
+          if (
+            typeof currency !== "string" ||
+            !["GNF", "USD", "EUR"].includes(currency)
+          ) {
+            sendError(
+              res,
+              400,
+              "currency invalide. Devises autorisées : GNF, USD, EUR."
+            );
+
+            return;
+          }
+
+          const payment =
+            createTestPayment({
+              id:
+                "PAY-TEST-" +
+                Date.now(),
+              userId:
+                user.id,
+              planId:
+                body.planId,
+              amount:
+                body.amount === undefined
+                  ? 0
+                  : body.amount,
+              currency
+            });
+
+          sendJson(
+            res,
+            201,
+            {
+              ok: true,
+              payment
+            }
+          );
+
+          return;
+        }
+
+        /*
+         * ==========================================
+         * PAYMENT TEST — UPDATE STATUS
+         * ==========================================
+         */
+        if (
+          req.method === "POST" &&
+          req.url === "/api/payment/test/status"
+        ) {
+          const user =
+            getAuthenticatedUser(req);
+
+          if (!user) {
+            sendError(
+              res,
+              401,
+              "Authentification requise."
+            );
+
+            return;
+          }
+
+          const body =
+            await readBody(req);
+
+          if (
+            typeof body.paymentId !== "string" ||
+            !body.paymentId
+          ) {
+            sendError(
+              res,
+              400,
+              "paymentId requis."
+            );
+
+            return;
+          }
+
+          if (
+            typeof body.status !== "string" ||
+            !body.status
+          ) {
+            sendError(
+              res,
+              400,
+              "status requis."
+            );
+
+            return;
+          }
+
+          const payment =
+            getTestPayment(
+              body.paymentId
+            );
+
+          if (!payment) {
+            sendError(
+              res,
+              404,
+              "Paiement introuvable."
+            );
+
+            return;
+          }
+
+          if (
+            payment.userId !== user.id
+          ) {
+            sendError(
+              res,
+              403,
+              "Accès au paiement refusé."
+            );
+
+            return;
+          }
+
+          let updatedPayment;
+
+          try {
+            updatedPayment =
+              updateTestPaymentStatus(
+                body.paymentId,
+                body.status
+              );
+          } catch (error) {
+            sendError(
+              res,
+              400,
+              error.message
+            );
+
+            return;
+          }
+
+          sendJson(
+            res,
+            200,
+            {
+              ok: true,
+              payment:
+                updatedPayment
+            }
+          );
+
+          return;
+        }
+
+        /*
+         * ==========================================
+         * PAYMENT TEST — WEBHOOK
+         * ==========================================
+         */
+        if (
+          req.method === "POST" &&
+          req.url === "/api/payment/test/webhook"
+        ) {
+          const user =
+            getAuthenticatedUser(req);
+
+          if (!user) {
+            sendError(
+              res,
+              401,
+              "Authentification requise."
+            );
+
+            return;
+          }
+
+          try {
+            const body =
+              await readBody(req);
+
+            if (
+              typeof body.paymentId !== "string" ||
+              !body.paymentId
+            ) {
+              sendError(
+                res,
+                400,
+                "paymentId obligatoire."
+              );
+
+              return;
+            }
+
+            if (
+              typeof body.event !== "string" ||
+              !body.event
+            ) {
+              sendError(
+                res,
+                400,
+                "event obligatoire."
+              );
+
+              return;
+            }
+
+            const payment =
+              getTestPayment(
+                body.paymentId
+              );
+
+            if (!payment) {
+              sendError(
+                res,
+                404,
+                "Paiement introuvable."
+              );
+
+              return;
+            }
+
+            if (
+              payment.userId !== user.id
+            ) {
+              sendError(
+                res,
+                403,
+                "Accès refusé à ce paiement."
+              );
+
+              return;
+            }
+
+            const result =
+              processTestPaymentWebhook({
+                paymentId:
+                  body.paymentId,
+                event:
+                  body.event
+              });
+
+            sendJson(
+              res,
+              200,
+              {
+                ok: true,
+                webhook: result
+              }
+            );
+
+            return;
+          } catch (error) {
+            sendError(
+              res,
+              400,
+              error.message
+            );
+
+            return;
+          }
+        }
+
+        /*
+         * ==========================================
+         * PAYMENT TEST — APPLY SUBSCRIPTION
+         * ==========================================
+         */
+        if (
+          req.method === "POST" &&
+          req.url === "/api/payment/test/apply-subscription"
+        ) {
+          const user =
+            getAuthenticatedUser(req);
+
+          if (!user) {
+            sendError(
+              res,
+              401,
+              "Authentification requise."
+            );
+
+            return;
+          }
+
+          try {
+            const body =
+              await readBody(req);
+
+            if (
+              typeof body.paymentId !== "string" ||
+              !body.paymentId
+            ) {
+              sendError(
+                res,
+                400,
+                "paymentId obligatoire."
+              );
+
+              return;
+            }
+
+            const payment =
+              getTestPayment(
+                body.paymentId
+              );
+
+            if (!payment) {
+              sendError(
+                res,
+                404,
+                "Paiement introuvable."
+              );
+
+              return;
+            }
+
+            if (
+              payment.userId !== user.id
+            ) {
+              sendError(
+                res,
+                403,
+                "Accès refusé à ce paiement."
+              );
+
+              return;
+            }
+
+            const result =
+              applySuccessfulPaymentToSubscription(
+                body.paymentId
+              );
+
+            sendJson(
+              res,
+              200,
+              {
+                ok: true,
+                payment:
+                  result.payment,
+                subscription:
+                  result.subscription,
+                subscriptionAction:
+                  result.subscriptionAction
+              }
+            );
+
+            return;
+          } catch (error) {
+            sendError(
+              res,
+              400,
+              error.message
+            );
+
+            return;
+          }
+        }
+
+
+        /*
+         * ==========================================
+         * PAYMENT TEST — GET PAYMENT
+         * ==========================================
+         */
+        if (
+          req.method === "GET" &&
+          req.url.startsWith(
+            "/api/payment/test/"
+          )
+        ) {
+          const user =
+            getAuthenticatedUser(req);
+
+          if (!user) {
+            sendError(
+              res,
+              401,
+              "Authentification requise."
+            );
+
+            return;
+          }
+
+          const paymentId =
+            decodeURIComponent(
+              req.url.slice(
+                "/api/payment/test/".length
+              )
+            );
+
+          if (!paymentId) {
+            sendError(
+              res,
+              400,
+              "paymentId requis."
+            );
+
+            return;
+          }
+
+          const payment =
+            getTestPayment(
+              paymentId
+            );
+
+          if (!payment) {
+            sendError(
+              res,
+              404,
+              "Paiement introuvable."
+            );
+
+            return;
+          }
+
+          if (
+            payment.userId !== user.id
+          ) {
+            sendError(
+              res,
+              403,
+              "Accès au paiement refusé."
+            );
+
+            return;
+          }
+
+          sendJson(
+            res,
+            200,
+            {
+              ok: true,
+              payment
             }
           );
 

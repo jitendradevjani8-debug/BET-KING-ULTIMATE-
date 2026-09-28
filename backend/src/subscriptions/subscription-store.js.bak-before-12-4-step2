@@ -1,0 +1,338 @@
+"use strict";
+
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+
+const {
+  getPlan
+} = require("./plans");
+
+const {
+  isExpired,
+  getEffectiveStatus
+} = require("./subscription-expiration");
+
+const {
+  renewSubscription
+} = require("./subscription-renewal");
+
+const DATA_DIR =
+  path.join(
+    __dirname,
+    "../../data/subscriptions"
+  );
+
+const DATA_FILE =
+  path.join(
+    DATA_DIR,
+    "subscriptions.json"
+  );
+
+function ensureStorage() {
+  fs.mkdirSync(
+    DATA_DIR,
+    {
+      recursive: true
+    }
+  );
+
+  if (!fs.existsSync(DATA_FILE)) {
+    fs.writeFileSync(
+      DATA_FILE,
+      "[]\n",
+      "utf8"
+    );
+  }
+}
+
+function readSubscriptions() {
+  ensureStorage();
+
+  const raw =
+    fs.readFileSync(
+      DATA_FILE,
+      "utf8"
+    ).trim();
+
+  if (!raw) {
+    return [];
+  }
+
+  const data =
+    JSON.parse(raw);
+
+  if (!Array.isArray(data)) {
+    throw new Error(
+      "Stockage des abonnements invalide."
+    );
+  }
+
+  return data;
+}
+
+function writeSubscriptions(
+  subscriptions
+) {
+  ensureStorage();
+
+  fs.writeFileSync(
+    DATA_FILE,
+    JSON.stringify(
+      subscriptions,
+      null,
+      2
+    ) + "\n",
+    "utf8"
+  );
+}
+
+function createSubscription({
+  userId,
+  planId,
+  status = "ACTIVE",
+  startsAt = new Date().toISOString(),
+  expiresAt = null
+}) {
+  if (!userId) {
+    throw new Error(
+      "userId obligatoire."
+    );
+  }
+
+  if (!planId) {
+    throw new Error(
+      "planId obligatoire."
+    );
+  }
+
+  if (!getPlan(planId)) {
+    throw new Error(
+      "Plan d'abonnement invalide."
+    );
+  }
+
+  const subscriptions =
+    readSubscriptions();
+
+  const existing =
+    subscriptions.find(
+      subscription =>
+        subscription.userId === userId &&
+        getEffectiveStatus(subscription) === "ACTIVE"
+    );
+
+  if (existing) {
+    throw new Error(
+      "Un abonnement actif existe déjà pour cet utilisateur."
+    );
+  }
+
+  const subscription = {
+    id:
+      crypto.randomUUID(),
+
+    userId,
+
+    planId:
+      planId.toUpperCase(),
+
+    status,
+
+    startsAt,
+
+    expiresAt,
+
+    createdAt:
+      new Date().toISOString(),
+
+    updatedAt:
+      new Date().toISOString()
+  };
+
+  subscriptions.push(
+    subscription
+  );
+
+  writeSubscriptions(
+    subscriptions
+  );
+
+  return subscription;
+}
+
+function findByUserId(
+  userId
+) {
+  if (!userId) {
+    return null;
+  }
+
+  return readSubscriptions()
+    .find(
+      subscription =>
+        subscription.userId === userId
+    ) || null;
+}
+
+function getUserSubscription(
+  userId,
+  now = new Date()
+) {
+  if (!userId) {
+    return null;
+  }
+
+  const subscriptions =
+    readSubscriptions()
+      .filter(
+        subscription =>
+          subscription.userId === userId
+      );
+
+  if (!subscriptions.length) {
+    return null;
+  }
+
+  const active =
+    subscriptions
+      .filter(
+        subscription =>
+          getEffectiveStatus(
+            subscription,
+            now
+          ) === "ACTIVE"
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() -
+          new Date(a.createdAt).getTime()
+      )[0];
+
+  const subscription =
+    active ||
+    subscriptions
+      .sort(
+        (a, b) =>
+          new Date(b.updatedAt).getTime() -
+          new Date(a.updatedAt).getTime()
+      )[0];
+
+  return {
+    ...subscription,
+
+    effectiveStatus:
+      getEffectiveStatus(
+        subscription,
+        now
+      )
+  };
+}
+
+function renewUserSubscription(
+  userId,
+  {
+    planId,
+    now = new Date()
+  } = {}
+) {
+  if (!userId) {
+    throw new Error(
+      "userId obligatoire."
+    );
+  }
+
+  const subscriptions =
+    readSubscriptions();
+
+  const index =
+    subscriptions.findIndex(
+      subscription =>
+        subscription.userId === userId
+    );
+
+  if (index === -1) {
+    throw new Error(
+      "Abonnement introuvable."
+    );
+  }
+
+  const current =
+    subscriptions[index];
+
+  const effectiveStatus =
+    getEffectiveStatus(
+      current,
+      now
+    );
+
+  if (
+    effectiveStatus !== "EXPIRED"
+  ) {
+    throw new Error(
+      "Le renouvellement nécessite un abonnement expiré."
+    );
+  }
+
+  const renewed =
+    renewSubscription(
+      {
+        ...current,
+        status: "ACTIVE"
+      },
+      {
+        planId:
+          planId || current.planId,
+
+        now
+      }
+    );
+
+  const newSubscription = {
+    ...renewed,
+
+    id:
+      crypto.randomUUID(),
+
+    userId,
+
+    createdAt:
+      now.toISOString(),
+
+    updatedAt:
+      now.toISOString()
+  };
+
+  subscriptions[index] = {
+    ...current,
+
+    status: "RENEWED",
+
+    updatedAt:
+      now.toISOString()
+  };
+
+  subscriptions.push(
+    newSubscription
+  );
+
+  writeSubscriptions(
+    subscriptions
+  );
+
+  return newSubscription;
+}
+
+function listSubscriptions() {
+  return readSubscriptions();
+}
+
+module.exports = {
+  createSubscription,
+  findByUserId,
+  getUserSubscription,
+  renewUserSubscription,
+  listSubscriptions,
+  isExpired,
+  getEffectiveStatus
+};

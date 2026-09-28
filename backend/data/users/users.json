@@ -1,0 +1,37 @@
+{
+  "users": [
+    {
+      "id": "f61cb022-f303-46c0-a8bb-fa5ec7c6adcd",
+      "username": "owner",
+      "displayName": "BET KING OWNER",
+      "role": "OWNER",
+      "passwordSalt": "233af2bbe9cb8ded557f368082db3416",
+      "passwordHash": "019e0bd7fc1664ab4f06d3b9a5bceacb4bc2897e2b06c9963235605ef538397dade73e6c171a962ac7c11c92783da801e07f47c48bb8b01fd31d6d71e3aeef10",
+      "active": true,
+      "createdAt": "2026-09-27T15:59:50.873Z",
+      "updatedAt": "2026-09-27T15:59:50.889Z"
+    },
+    {
+      "id": "03613221-7d02-4384-a728-0934e020acd7",
+      "username": "admin",
+      "displayName": "BET KING ADMIN",
+      "role": "ADMIN",
+      "passwordSalt": "c670c5ddf7ce50906a99da6eeb50b345",
+      "passwordHash": "1599d9276c2a14bef1c715eb1eaa3ec9:a104e590c9d23d35d83821e53fce12e4dfe11f4ddd65188dabb516d29193c8c8caf1c53802e9a38ba03ca32ffa74cddd9939474adce9c837f172f38137661357",
+      "active": true,
+      "createdAt": "2026-09-27T16:06:28.090Z",
+      "updatedAt": "2026-09-27T16:06:28.109Z"
+    },
+    {
+      "id": "43375a72-fa26-4367-872e-3b5bf78b70c4",
+      "username": "member",
+      "displayName": "BET KING MEMBER",
+      "role": "MEMBER",
+      "passwordSalt": "1264c3a0a1feb360a334a3676420d0e5",
+      "passwordHash": "ee78feca48e0fb6f2cccbabc66899cfb11dbd04186455b8e74e1b62a735fbd1ed276505d9b63d32e50ccd0df77d05c23ef279a1aa8c5ab532bdaa80415b7e222",
+      "active": true,
+      "createdAt": "2026-09-27T16:06:28.810Z",
+      "updatedAt": "2026-09-27T16:06:28.811Z"
+    }
+  ]
+}

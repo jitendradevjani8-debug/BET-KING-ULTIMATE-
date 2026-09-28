@@ -1,0 +1,166 @@
+"use strict";
+
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+
+const DATA_DIR =
+  path.join(
+    __dirname,
+    "../../data/subscriptions"
+  );
+
+const DATA_FILE =
+  path.join(
+    DATA_DIR,
+    "subscriptions.json"
+  );
+
+function ensureStorage() {
+  fs.mkdirSync(
+    DATA_DIR,
+    {
+      recursive: true
+    }
+  );
+
+  if (!fs.existsSync(DATA_FILE)) {
+    fs.writeFileSync(
+      DATA_FILE,
+      "[]\n",
+      "utf8"
+    );
+  }
+}
+
+function readSubscriptions() {
+  ensureStorage();
+
+  const raw =
+    fs.readFileSync(
+      DATA_FILE,
+      "utf8"
+    ).trim();
+
+  if (!raw) {
+    return [];
+  }
+
+  const data =
+    JSON.parse(raw);
+
+  if (!Array.isArray(data)) {
+    throw new Error(
+      "Stockage des abonnements invalide."
+    );
+  }
+
+  return data;
+}
+
+function writeSubscriptions(
+  subscriptions
+) {
+  ensureStorage();
+
+  fs.writeFileSync(
+    DATA_FILE,
+    JSON.stringify(
+      subscriptions,
+      null,
+      2
+    ) + "\n",
+    "utf8"
+  );
+}
+
+function createSubscription({
+  userId,
+  planId,
+  status = "ACTIVE",
+  startsAt = new Date().toISOString(),
+  expiresAt = null
+}) {
+  if (!userId) {
+    throw new Error(
+      "userId obligatoire."
+    );
+  }
+
+  if (!planId) {
+    throw new Error(
+      "planId obligatoire."
+    );
+  }
+
+  const subscriptions =
+    readSubscriptions();
+
+  const existing =
+    subscriptions.find(
+      subscription =>
+        subscription.userId === userId &&
+        subscription.status === "ACTIVE"
+    );
+
+  if (existing) {
+    throw new Error(
+      "Un abonnement actif existe déjà pour cet utilisateur."
+    );
+  }
+
+  const subscription = {
+    id:
+      crypto.randomUUID(),
+
+    userId,
+
+    planId,
+
+    status,
+
+    startsAt,
+
+    expiresAt,
+
+    createdAt:
+      new Date().toISOString(),
+
+    updatedAt:
+      new Date().toISOString()
+  };
+
+  subscriptions.push(
+    subscription
+  );
+
+  writeSubscriptions(
+    subscriptions
+  );
+
+  return subscription;
+}
+
+function findByUserId(
+  userId
+) {
+  if (!userId) {
+    return null;
+  }
+
+  return readSubscriptions()
+    .find(
+      subscription =>
+        subscription.userId === userId
+    ) || null;
+}
+
+function listSubscriptions() {
+  return readSubscriptions();
+}
+
+module.exports = {
+  createSubscription,
+  findByUserId,
+  listSubscriptions
+};

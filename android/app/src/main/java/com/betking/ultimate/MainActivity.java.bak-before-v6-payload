@@ -1,0 +1,902 @@
+package com.betking.ultimate;
+
+import android.app.Activity;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.Gravity;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.graphics.Typeface;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
+public class MainActivity extends Activity {
+
+    private static final String API_BASE =
+            "http://127.0.0.1:3001/api";
+
+    private TextView statusText;
+    private TextView dashboardText;
+    private TextView resultText;
+
+    private String sessionToken = null;
+
+    private final Handler handler =
+            new Handler(Looper.getMainLooper());
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        buildInterface();
+        autoAuthenticate();
+    }
+
+    private void buildInterface() {
+
+        ScrollView scrollView =
+                new ScrollView(this);
+
+        LinearLayout root =
+                new LinearLayout(this);
+
+        root.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        root.setPadding(
+                32,
+                40,
+                32,
+                40
+        );
+
+        TextView title =
+                new TextView(this);
+
+        title.setText(
+                "👑 BET KING ULTIMATE"
+        );
+
+        title.setTextSize(28);
+
+        title.setTypeface(
+                null,
+                Typeface.BOLD
+        );
+
+        title.setGravity(
+                Gravity.CENTER
+        );
+
+        statusText =
+                new TextView(this);
+
+        statusText.setText(
+                "🔄 Authentification..."
+        );
+
+        statusText.setTextSize(17);
+
+        statusText.setPadding(
+                0,
+                25,
+                0,
+                20
+        );
+
+        dashboardText =
+                new TextView(this);
+
+        dashboardText.setText(
+                "Connexion..."
+        );
+
+        dashboardText.setTextSize(16);
+
+        Button refreshButton =
+                new Button(this);
+
+        refreshButton.setText(
+                "🔄 ACTUALISER"
+        );
+
+        refreshButton.setOnClickListener(
+                v -> loadDashboard()
+        );
+
+        Button hcButton =
+                new Button(this);
+
+        hcButton.setText(
+                "🔥 HIGH CONFIDENCE"
+        );
+
+        hcButton.setOnClickListener(
+                v -> sendHighConfidence()
+        );
+
+        Button ultraButton =
+                new Button(this);
+
+        ultraButton.setText(
+                "👑 ULTRA VIP MIX"
+        );
+
+        ultraButton.setOnClickListener(
+                v -> sendUltraVip()
+        );
+
+        resultText =
+                new TextView(this);
+
+        resultText.setText("");
+
+        resultText.setTextSize(16);
+
+        resultText.setPadding(
+                0,
+                25,
+                0,
+                25
+        );
+
+        root.addView(title);
+        root.addView(statusText);
+        root.addView(dashboardText);
+        root.addView(refreshButton);
+        root.addView(hcButton);
+        root.addView(ultraButton);
+        root.addView(resultText);
+
+        scrollView.addView(root);
+
+        setContentView(scrollView);
+    }
+
+    /*
+     * ==========================================
+     * AUTO AUTHENTICATION
+     * ==========================================
+     */
+
+    private void autoAuthenticate() {
+
+        statusText.setText(
+                "🔐 Authentification automatique..."
+        );
+
+        new Thread(() -> {
+
+            try {
+
+                JSONObject response =
+                        postWithoutAuth(
+                                API_BASE +
+                                "/auth/auto-owner",
+                                new JSONObject()
+                        );
+
+                boolean ok =
+                        response.optBoolean(
+                                "ok",
+                                false
+                        );
+
+                if (!ok) {
+                    throw new Exception(
+                            "Auto-auth refusée."
+                    );
+                }
+
+                JSONObject session =
+                        response.getJSONObject(
+                                "session"
+                        );
+
+                sessionToken =
+                        session.getString(
+                                "token"
+                        );
+
+                JSONObject user =
+                        response.getJSONObject(
+                                "user"
+                        );
+
+                String username =
+                        user.optString(
+                                "username",
+                                "owner"
+                        );
+
+                String role =
+                        user.optString(
+                                "role",
+                                "OWNER"
+                        );
+
+                handler.post(() -> {
+
+                    statusText.setText(
+                            "🟢 CONNECTÉ — " +
+                            username +
+                            " (" +
+                            role +
+                            ")"
+                    );
+
+                    loadDashboard();
+                });
+
+            } catch (Exception e) {
+
+                handler.post(() -> {
+
+                    sessionToken = null;
+
+                    statusText.setText(
+                            "🔴 AUTHENTIFICATION ÉCHOUÉE"
+                    );
+
+                    dashboardText.setText(
+                            "Erreur : " +
+                            e.getMessage()
+                    );
+                });
+            }
+
+        }).start();
+    }
+
+    /*
+     * ==========================================
+     * DASHBOARD
+     * ==========================================
+     */
+
+    private void loadDashboard() {
+
+        if (sessionToken == null) {
+
+            statusText.setText(
+                    "🔐 Session absente..."
+            );
+
+            autoAuthenticate();
+
+            return;
+        }
+
+        statusText.setText(
+                "🔄 Chargement du dashboard..."
+        );
+
+        dashboardText.setText(
+                "Chargement..."
+        );
+
+        new Thread(() -> {
+
+            try {
+
+                JSONObject response =
+                        getAuthenticated(
+                                API_BASE +
+                                "/owner/dashboard"
+                        );
+
+                handler.post(() -> {
+
+                    try {
+
+                        JSONObject dashboard =
+                                response.getJSONObject(
+                                        "dashboard"
+                                );
+
+                        JSONObject environments =
+                                dashboard.getJSONObject(
+                                        "environments"
+                                );
+
+                        JSONObject test =
+                                environments.getJSONObject(
+                                        "TEST"
+                                );
+
+                        JSONObject live =
+                                environments.getJSONObject(
+                                        "LIVE"
+                                );
+
+                        JSONObject testSummary =
+                                test.getJSONObject(
+                                        "summary"
+                                );
+
+                        JSONObject liveSummary =
+                                live.getJSONObject(
+                                        "summary"
+                                );
+
+                        String text =
+                                "📊 DASHBOARD OWNER\n\n" +
+
+                                "🧪 TEST\n" +
+
+                                "Total prédictions : " +
+                                testSummary.optInt(
+                                        "total"
+                                ) + "\n" +
+
+                                "HIGH CONFIDENCE : " +
+                                testSummary.optInt(
+                                        "highConfidence"
+                                ) + "\n" +
+
+                                "ULTRA VIP : " +
+                                testSummary.optInt(
+                                        "ultraVip"
+                                ) + "\n" +
+
+                                "Pending : " +
+                                testSummary.optInt(
+                                        "pending"
+                                ) + "\n" +
+
+                                "Won : " +
+                                testSummary.optInt(
+                                        "won"
+                                ) + "\n" +
+
+                                "Lost : " +
+                                testSummary.optInt(
+                                        "lost"
+                                ) + "\n\n" +
+
+                                "🔴 LIVE\n" +
+
+                                "Total prédictions : " +
+                                liveSummary.optInt(
+                                        "total"
+                                ) + "\n" +
+
+                                "Pending : " +
+                                liveSummary.optInt(
+                                        "pending"
+                                ) + "\n" +
+
+                                "Won : " +
+                                liveSummary.optInt(
+                                        "won"
+                                ) + "\n" +
+
+                                "Lost : " +
+                                liveSummary.optInt(
+                                        "lost"
+                                );
+
+                        dashboardText.setText(
+                                text
+                        );
+
+                        statusText.setText(
+                                "🟢 API + AUTH CONNECTÉES"
+                        );
+
+                    } catch (Exception e) {
+
+                        statusText.setText(
+                                "🔴 ERREUR DASHBOARD"
+                        );
+
+                        dashboardText.setText(
+                                e.getMessage()
+                        );
+                    }
+                });
+
+            } catch (Exception e) {
+
+                if (isUnauthorized(e)) {
+
+                    sessionToken = null;
+
+                    handler.post(
+                            this::autoAuthenticate
+                    );
+
+                    return;
+                }
+
+                handler.post(() -> {
+
+                    statusText.setText(
+                            "🔴 API NON CONNECTÉE"
+                    );
+
+                    dashboardText.setText(
+                            "Erreur : " +
+                            e.getMessage()
+                    );
+                });
+            }
+
+        }).start();
+    }
+
+    /*
+     * ==========================================
+     * HIGH CONFIDENCE
+     * ==========================================
+     */
+
+    private void sendHighConfidence() {
+
+        if (sessionToken == null) {
+            autoAuthenticate();
+            return;
+        }
+
+        resultText.setText(
+                "🔥 HIGH CONFIDENCE\n\n" +
+                "Envoi de l'analyse..."
+        );
+
+        new Thread(() -> {
+
+            try {
+
+                JSONObject data =
+                        new JSONObject();
+
+                data.put(
+                        "environment",
+                        "TEST"
+                );
+
+                data.put(
+                        "homeTeam",
+                        "TEAM A"
+                );
+
+                data.put(
+                        "awayTeam",
+                        "TEAM B"
+                );
+
+                data.put(
+                        "homeXg",
+                        2.2
+                );
+
+                data.put(
+                        "awayXg",
+                        0.6
+                );
+
+                data.put(
+                        "homeWinOdds",
+                        1.70
+                );
+
+                JSONObject response =
+                        postAuthenticated(
+                                API_BASE +
+                                "/high-confidence",
+                                data
+                        );
+
+                handler.post(() -> {
+
+                    resultText.setText(
+                            "🔥 HIGH CONFIDENCE\n\n" +
+                            response.toString()
+                    );
+
+                    loadDashboard();
+                });
+
+            } catch (Exception e) {
+
+                if (isUnauthorized(e)) {
+
+                    sessionToken = null;
+
+                    handler.post(
+                            this::autoAuthenticate
+                    );
+
+                    return;
+                }
+
+                handler.post(() ->
+                        resultText.setText(
+                                "❌ HIGH CONFIDENCE\n\n" +
+                                e.getMessage()
+                        )
+                );
+            }
+
+        }).start();
+    }
+
+    /*
+     * ==========================================
+     * ULTRA VIP
+     * ==========================================
+     */
+
+    private void sendUltraVip() {
+
+        if (sessionToken == null) {
+            autoAuthenticate();
+            return;
+        }
+
+        resultText.setText(
+                "👑 ULTRA VIP MIX\n\n" +
+                "Envoi du mix..."
+        );
+
+        new Thread(() -> {
+
+            try {
+
+                JSONObject data =
+                        new JSONObject();
+
+                data.put(
+                        "environment",
+                        "TEST"
+                );
+
+                JSONArray selections =
+                        new JSONArray();
+
+                JSONObject selection1 =
+                        new JSONObject();
+
+                selection1.put(
+                        "homeTeam",
+                        "TEAM A"
+                );
+
+                selection1.put(
+                        "awayTeam",
+                        "TEAM B"
+                );
+
+                selection1.put(
+                        "market",
+                        "HOME_WIN"
+                );
+
+                selection1.put(
+                        "odds",
+                        1.70
+                );
+
+                selection1.put(
+                        "probability",
+                        0.72
+                );
+
+                JSONObject selection2 =
+                        new JSONObject();
+
+                selection2.put(
+                        "homeTeam",
+                        "TEAM C"
+                );
+
+                selection2.put(
+                        "awayTeam",
+                        "TEAM D"
+                );
+
+                selection2.put(
+                        "market",
+                        "OVER_1_5"
+                );
+
+                selection2.put(
+                        "odds",
+                        1.45
+                );
+
+                selection2.put(
+                        "probability",
+                        0.78
+                );
+
+                selections.put(
+                        selection1
+                );
+
+                selections.put(
+                        selection2
+                );
+
+                data.put(
+                        "selections",
+                        selections
+                );
+
+                JSONObject response =
+                        postAuthenticated(
+                                API_BASE +
+                                "/ultra-vip",
+                                data
+                        );
+
+                handler.post(() -> {
+
+                    resultText.setText(
+                            "👑 ULTRA VIP MIX\n\n" +
+                            response.toString()
+                    );
+
+                    loadDashboard();
+                });
+
+            } catch (Exception e) {
+
+                if (isUnauthorized(e)) {
+
+                    sessionToken = null;
+
+                    handler.post(
+                            this::autoAuthenticate
+                    );
+
+                    return;
+                }
+
+                handler.post(() ->
+                        resultText.setText(
+                                "❌ ULTRA VIP MIX\n\n" +
+                                e.getMessage()
+                        )
+                );
+            }
+
+        }).start();
+    }
+
+    /*
+     * ==========================================
+     * HTTP GET AUTHENTIFIÉ
+     * ==========================================
+     */
+
+    private JSONObject getAuthenticated(
+            String urlString
+    ) throws Exception {
+
+        URL url =
+                new URL(urlString);
+
+        HttpURLConnection connection =
+                (HttpURLConnection)
+                        url.openConnection();
+
+        connection.setRequestMethod(
+                "GET"
+        );
+
+        connection.setRequestProperty(
+                "Authorization",
+                "Bearer " + sessionToken
+        );
+
+        connection.setConnectTimeout(
+                10000
+        );
+
+        connection.setReadTimeout(
+                15000
+        );
+
+        int code =
+                connection.getResponseCode();
+
+        BufferedReader reader =
+                new BufferedReader(
+                        new InputStreamReader(
+                                code >= 400
+                                        ? connection.getErrorStream()
+                                        : connection.getInputStream()
+                        )
+                );
+
+        StringBuilder result =
+                new StringBuilder();
+
+        String line;
+
+        while (
+                (line = reader.readLine()) != null
+        ) {
+            result.append(line);
+        }
+
+        reader.close();
+
+        connection.disconnect();
+
+        if (code < 200 || code >= 300) {
+
+            throw new Exception(
+                    "HTTP " +
+                    code +
+                    "\n" +
+                    result
+            );
+        }
+
+        return new JSONObject(
+                result.toString()
+        );
+    }
+
+    /*
+     * ==========================================
+     * HTTP POST AUTHENTIFIÉ
+     * ==========================================
+     */
+
+    private JSONObject postAuthenticated(
+            String urlString,
+            JSONObject data
+    ) throws Exception {
+
+        return postInternal(
+                urlString,
+                data,
+                true
+        );
+    }
+
+    /*
+     * ==========================================
+     * HTTP POST SANS AUTH
+     * ==========================================
+     */
+
+    private JSONObject postWithoutAuth(
+            String urlString,
+            JSONObject data
+    ) throws Exception {
+
+        return postInternal(
+                urlString,
+                data,
+                false
+        );
+    }
+
+    /*
+     * ==========================================
+     * POST INTERNE
+     * ==========================================
+     */
+
+    private JSONObject postInternal(
+            String urlString,
+            JSONObject data,
+            boolean authenticated
+    ) throws Exception {
+
+        URL url =
+                new URL(urlString);
+
+                new URL(urlString);
+
+        HttpURLConnection connection =
+                (HttpURLConnection)
+                        url.openConnection();
+
+        connection.setRequestMethod(
+                "POST"
+        );
+
+        connection.setRequestProperty(
+                "Content-Type",
+                "application/json"
+        );
+
+        if (authenticated) {
+
+            connection.setRequestProperty(
+                    "Authorization",
+                    "Bearer " + sessionToken
+            );
+        }
+
+        connection.setDoOutput(true);
+
+        connection.setConnectTimeout(
+                10000
+        );
+
+        connection.setReadTimeout(
+                15000
+        );
+
+        byte[] body =
+                data.toString()
+                        .getBytes("UTF-8");
+
+        OutputStream output =
+                connection.getOutputStream();
+
+        output.write(body);
+        output.flush();
+        output.close();
+
+        int code =
+                connection.getResponseCode();
+
+        BufferedReader reader =
+                new BufferedReader(
+                        new InputStreamReader(
+                                code >= 400
+                                        ? connection.getErrorStream()
+                                        : connection.getInputStream()
+                        )
+                );
+
+        StringBuilder result =
+                new StringBuilder();
+
+        String line;
+
+        while (
+                (line = reader.readLine()) != null
+        ) {
+            result.append(line);
+        }
+
+        reader.close();
+        connection.disconnect();
+
+        if (code < 200 || code >= 300) {
+
+            throw new Exception(
+                    "HTTP " +
+                    code +
+                    "\n" +
+                    result
+            );
+        }
+
+        return new JSONObject(
+                result.toString()
+        );
+    }
+
+    private boolean isUnauthorized(
+            Exception e
+    ) {
+
+        String message =
+                e.getMessage();
+
+        return message != null &&
+                message.contains(
+                        "HTTP 401"
+                );
+    }
+}

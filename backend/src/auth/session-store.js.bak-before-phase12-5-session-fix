@@ -1,0 +1,79 @@
+"use strict";
+
+const crypto = require("crypto");
+
+const sessions = new Map();
+
+const SESSION_DURATION_MS =
+  24 * 60 * 60 * 1000;
+
+function createSession(user) {
+  const token =
+    crypto.randomBytes(48).toString("hex");
+
+  const now = Date.now();
+
+  const session = {
+    token,
+    userId: user.id,
+    username: user.username,
+    role: user.role,
+    createdAt: now,
+    expiresAt: now + SESSION_DURATION_MS
+  };
+
+  sessions.set(token, session);
+
+  return {
+    token,
+    expiresAt: new Date(
+      session.expiresAt
+    ).toISOString()
+  };
+}
+
+function getSession(token) {
+  if (!token) {
+    return null;
+  }
+
+  const session = sessions.get(token);
+
+  if (!session) {
+    return null;
+  }
+
+  if (Date.now() >= session.expiresAt) {
+    sessions.delete(token);
+    return null;
+  }
+
+  return session;
+}
+
+function destroySession(token) {
+  if (token) {
+    sessions.delete(token);
+  }
+}
+
+function clearExpiredSessions() {
+  const now = Date.now();
+
+  for (const [token, session] of sessions) {
+    if (now >= session.expiresAt) {
+      sessions.delete(token);
+    }
+  }
+}
+
+setInterval(
+  clearExpiredSessions,
+  60 * 60 * 1000
+).unref();
+
+module.exports = {
+  createSession,
+  getSession,
+  destroySession
+};

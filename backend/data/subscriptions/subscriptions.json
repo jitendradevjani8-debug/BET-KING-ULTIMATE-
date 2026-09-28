@@ -1,0 +1,84 @@
+[
+  {
+    "id": "8976eed6-f017-4ebe-9d54-919cc957279f",
+    "userId": "phase12-access-test",
+    "planId": "VIP",
+    "status": "ACTIVE",
+    "startsAt": "2026-09-27T12:00:00.000Z",
+    "expiresAt": "2026-09-26T12:00:00.000Z",
+    "createdAt": "2026-09-28T00:13:19.904Z",
+    "updatedAt": "2026-09-28T00:13:19.904Z"
+  },
+  {
+    "id": "01eea495-ae13-4663-9d79-bd21c1f3e234",
+    "userId": "phase12-free-test",
+    "planId": "FREE",
+    "status": "ACTIVE",
+    "startsAt": "2026-09-27T12:00:00.000Z",
+    "expiresAt": null,
+    "createdAt": "2026-09-28T00:14:21.916Z",
+    "updatedAt": "2026-09-28T00:14:21.917Z"
+  },
+  {
+    "id": "30a2d223-6176-44f8-b1aa-642e4a216743",
+    "userId": "phase12-vip-test",
+    "planId": "VIP",
+    "status": "ACTIVE",
+    "startsAt": "2026-09-27T12:00:00.000Z",
+    "expiresAt": "2026-10-27T12:00:00.000Z",
+    "createdAt": "2026-09-28T00:14:21.918Z",
+    "updatedAt": "2026-09-28T00:14:21.918Z"
+  },
+  {
+    "id": "365f3319-65d9-4dd6-89a0-81ca8aa0474b",
+    "userId": "phase12-owner-test",
+    "planId": "OWNER",
+    "status": "ACTIVE",
+    "startsAt": "2026-09-27T12:00:00.000Z",
+    "expiresAt": "2026-10-27T12:00:00.000Z",
+    "createdAt": "2026-09-28T00:14:21.919Z",
+    "updatedAt": "2026-09-28T00:14:21.919Z"
+  },
+  {
+    "id": "49ed7729-c052-4a1a-8c16-a79bffff7ba6",
+    "userId": "phase12-api-service-test",
+    "planId": "VIP",
+    "status": "ACTIVE",
+    "startsAt": "2026-09-27T12:00:00.000Z",
+    "expiresAt": "2026-10-27T12:00:00.000Z",
+    "createdAt": "2026-09-28T00:16:02.534Z",
+    "updatedAt": "2026-09-28T00:16:02.535Z"
+  },
+  {
+    "id": "0ab624b1-1494-4e24-9018-2b778b271774",
+    "userId": "owner",
+    "planId": "VIP",
+    "status": "ACTIVE",
+    "startsAt": "2026-09-28T00:00:00.000Z",
+    "expiresAt": "2026-10-28T00:00:00.000Z",
+    "createdAt": "2026-09-28T00:32:38.638Z",
+    "updatedAt": "2026-09-28T00:32:38.638Z"
+  },
+  {
+    "id": "4c2dd834-5ac2-48f1-9682-e2a5a322c336",
+    "userId": "f61cb022-f303-46c0-a8bb-fa5ec7c6adcd",
+    "planId": "VIP",
+    "status": "RENEWED",
+    "startsAt": "2026-09-28T00:00:00.000Z",
+    "expiresAt": "2026-09-27T00:00:00.000Z",
+    "createdAt": "2026-09-28T00:37:34.907Z",
+    "updatedAt": "2026-09-28T00:54:18.291Z"
+  },
+  {
+    "id": "0f9c40fa-83c4-40c4-8dad-8c5a83bdf344",
+    "userId": "f61cb022-f303-46c0-a8bb-fa5ec7c6adcd",
+    "planId": "VIP",
+    "status": "ACTIVE",
+    "startsAt": "2026-09-28T00:54:18.291Z",
+    "expiresAt": "2026-10-28T00:54:18.291Z",
+    "createdAt": "2026-09-28T00:54:18.291Z",
+    "updatedAt": "2026-09-28T00:54:18.291Z",
+    "renewedFrom": "4c2dd834-5ac2-48f1-9682-e2a5a322c336",
+    "renewedAt": "2026-09-28T00:54:18.291Z"
+  }
+]

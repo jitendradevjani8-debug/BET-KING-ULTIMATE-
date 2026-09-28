@@ -1,0 +1,240 @@
+"use strict";
+
+const fs = require("fs");
+const path = require("path");
+const crypto = require("crypto");
+
+const DATA_DIR = path.join(__dirname, "../../data/users");
+const USERS_FILE = path.join(DATA_DIR, "users.json");
+
+const ROLES = Object.freeze({
+  OWNER: "OWNER",
+  ADMIN: "ADMIN",
+  MEMBER: "MEMBER"
+});
+
+function ensureStorage() {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+
+  if (!fs.existsSync(USERS_FILE)) {
+    fs.writeFileSync(
+      USERS_FILE,
+      JSON.stringify({ users: [] }, null, 2),
+      "utf8"
+    );
+  }
+}
+
+function readDatabase() {
+  ensureStorage();
+
+  try {
+    const raw = fs.readFileSync(USERS_FILE, "utf8");
+    const db = JSON.parse(raw);
+
+    if (!db || !Array.isArray(db.users)) {
+      throw new Error("Format users.json invalide");
+    }
+
+    return db;
+  } catch (error) {
+    throw new Error(
+      "Impossible de lire users.json: " + error.message
+    );
+  }
+}
+
+function writeDatabase(db) {
+  ensureStorage();
+
+  const tempFile = USERS_FILE + ".tmp";
+
+  fs.writeFileSync(
+    tempFile,
+    JSON.stringify(db, null, 2),
+    "utf8"
+  );
+
+  fs.renameSync(tempFile, USERS_FILE);
+}
+
+function normalizeUsername(username) {
+  return String(username || "")
+    .trim()
+    .toLowerCase();
+}
+
+function hashPassword(password, saltHex) {
+  const salt = saltHex
+    ? Buffer.from(saltHex, "hex")
+    : crypto.randomBytes(16);
+
+  const hash = crypto.scryptSync(
+    String(password),
+    salt,
+    64
+  );
+
+  return {
+    salt: salt.toString("hex"),
+    hash: hash.toString("hex")
+  };
+}
+
+function verifyPassword(password, user) {
+  const calculated = crypto.scryptSync(
+    String(password),
+    Buffer.from(user.passwordSalt, "hex"),
+    64
+  );
+
+  const stored = Buffer.from(
+    user.passwordHash,
+    "hex"
+  );
+
+  return (
+    calculated.length === stored.length &&
+    crypto.timingSafeEqual(calculated, stored)
+  );
+}
+
+function createUser({
+  username,
+  password,
+  role = ROLES.MEMBER,
+  displayName = ""
+}) {
+  const normalized = normalizeUsername(username);
+
+  if (!normalized) {
+    throw new Error("Nom utilisateur obligatoire");
+  }
+
+  if (!password || String(password).length < 8) {
+    throw new Error(
+      "Le mot de passe doit contenir au moins 8 caractères"
+    );
+  }
+
+  if (!Object.values(ROLES).includes(role)) {
+    throw new Error("Rôle invalide");
+  }
+
+  const db = readDatabase();
+
+  const exists = db.users.some(
+    user => user.username === normalized
+  );
+
+  if (exists) {
+    throw new Error("Utilisateur déjà existant");
+  }
+
+  const credentials = hashPassword(password);
+
+  const user = {
+    id: crypto.randomUUID(),
+    username: normalized,
+    displayName: displayName || normalized,
+    role,
+    passwordSalt: credentials.salt,
+    passwordHash: credentials.hash,
+    active: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+
+  db.users.push(user);
+  writeDatabase(db);
+
+  return sanitizeUser(user);
+}
+
+function findByUsername(username) {
+  const normalized = normalizeUsername(username);
+
+  const db = readDatabase();
+
+  return (
+    db.users.find(
+      user => user.username === normalized
+    ) || null
+  );
+}
+
+function findById(id) {
+  const db = readDatabase();
+
+  return (
+    db.users.find(
+      user => user.id === id
+    ) || null
+  );
+}
+
+function authenticate(username, password) {
+  const user = findByUsername(username);
+
+  if (!user || !user.active) {
+    return null;
+  }
+
+  if (!verifyPassword(password, user)) {
+    return null;
+  }
+
+  return sanitizeUser(user);
+}
+
+function listUsers() {
+  const db = readDatabase();
+
+  return db.users.map(sanitizeUser);
+}
+
+function sanitizeUser(user) {
+  if (!user) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    username: user.username,
+    displayName: user.displayName,
+    role: user.role,
+    active: user.active,
+    createdAt: user.createdAt,
+    updatedAt: user.updatedAt
+  };
+}
+
+function ensureOwner(
+  username = "owner",
+  password = crypto.randomBytes(32).toString("hex"),
+  displayName = "BET KING OWNER"
+) {
+  const existing = findByUsername(username);
+
+  if (existing) {
+    return sanitizeUser(existing);
+  }
+
+  return createUser({
+    username,
+    password,
+    role: ROLES.OWNER,
+    displayName
+  });
+}
+
+module.exports = {
+  ROLES,
+  createUser,
+  findByUsername,
+  findById,
+  authenticate,
+  listUsers,
+  ensureOwner,
+  sanitizeUser
+};
